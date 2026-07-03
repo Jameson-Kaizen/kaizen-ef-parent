@@ -117,6 +117,18 @@
   .dcard .dh{font-size:15px;font-weight:700;margin:0 0 6px;}
   .dcard .dh .bd{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;}
   .dcard p{margin:0;font-size:14.5px;}
+  .dcard .move{margin-top:8px;background:var(--soft);border-radius:10px;padding:9px 12px;font-size:14px;}
+  .dcard .move b{color:var(--gd);}
+  .start{margin:18px 0;background:#fdf8ef;border:1px solid #ecdcbd;border-radius:14px;padding:16px 18px;}
+  .start-h{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .start p{margin:0 0 10px;font-size:14.5px;}
+  .start .st-item{margin:0 0 10px;}
+  .start .st-item b{display:block;font-size:14.5px;margin-bottom:2px;}
+  .start .st-item span{font-size:14px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}
+  .chip{background:var(--soft);border:1.5px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;color:var(--gd);cursor:pointer;font-family:inherit;transition:background .1s,border-color .1s,color .1s;}
+  .chip:hover{background:#e6f1ea;border-color:var(--g);}
+  .chip.active{background:var(--g);color:#fff;border-color:var(--gd);}
   .sec-h{font-size:13px;font-weight:700;color:var(--gd);text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px;}
   .cta{background:#0f2a1c;color:#eaf3ee;border-radius:16px;padding:22px 22px;margin:20px 0 0;text-align:center;}
   .cta p{margin:0 0 14px;font-size:15px;}
@@ -197,9 +209,15 @@
       <div class="ai-head" id="ai-head">A personalised read on your child</div>
       <div class="ai-body" id="ai-body"></div>
     </div>
+    <div class="start" id="r-start" hidden>
+      <div class="start-h">Where to start</div>
+      <p id="r-start-lead">You do not need to work on everything at once. Start with the skill or two below; they tend to unlock the others.</p>
+      <div id="r-start-items"></div>
+    </div>
     <div class="sec-h">The fourteen skills, by area</div>
     <div class="bars" id="r-bars"></div>
     <div class="sec-h">Each skill in detail</div>
+    <div class="chips" id="r-chips" hidden></div>
     <div class="body" id="r-body"></div>
     <div class="cta">
       <p>Want help turning the growth areas into strengths? Book a free 30 minute consult. We will look at the full snapshot with you, hear what is going on at home and school, and tell you honestly whether we think we are a fit.</p>
@@ -294,6 +312,25 @@
     {key:"adapting-self-awareness",name:"Adapting and Self-Awareness",intro:"Last stretch. How {C} adapts, understands themselves, and performs under pressure.",domains:["flexible-thinking","self-awareness","performance-under-pressure"]}
   ];
   var BAND_LABEL={strength:"Strength",developing:"Developing",growth:"Growth Area"};
+
+  // One tonight-sized parent move per skill, shown on Developing and Growth Area cards
+  // and in the "Where to start" panel. {C} = the child's name (falls back to "your child").
+  var MOVES={
+    "impulse-control":"Tonight, catch one pause and praise it out loud: you stopped and thought there. Naming the pause grows it faster than punishing the impulse.",
+    "working-memory":"Give {C} one instruction at a time tonight, and have them say it back before they go. The repeat-back is the memory hook.",
+    "emotional-control":"When feelings spike tonight, name what you see before fixing anything: that felt unfair. A named feeling is a smaller feeling.",
+    "focused-attention":"Try one 10 minute focus sprint tonight: desk cleared to one task, a timer {C} can see, a real break after. Protect one sprint, not the whole evening.",
+    "task-initiation":"Shrink tonight's start: ask {C} for the first two minutes only, the name on the page or the first problem. Starting is the whole battle.",
+    "planning-and-prioritization":"Before homework tonight, have {C} tell you the plan in one sentence: what first, what next. Kids follow plans they said out loud.",
+    "organization":"Pick one home tonight: one folder or one basket where everything school goes. One home, checked once a day, beats any three-step system.",
+    "time-management":"Make time visible tonight: an analog timer or a countdown {C} can see for one task. Kids cannot manage a clock they cannot see.",
+    "flexible-thinking":"Give one advance warning before a switch tonight: in five minutes we change to the next thing. The warning is the flexibility training.",
+    "self-awareness":"At bedtime, ask one noticing question: what part of today felt easiest, what part felt hardest? No lesson attached; the noticing is the skill.",
+    "self-motivation":"Pair tonight's boring task with something {C} likes: music during tidy-up, a snack after the reading. Borrowed motivation still builds the habit.",
+    "stress-management":"Build in one pressure valve tonight: ten quiet minutes after school or before homework, no questions, no demands. Regulation first, tasks second.",
+    "cognitive-stamina":"Watch for the fade tonight and call the break before the crash: short work blocks with a real pause between. Stamina grows from stopping in time.",
+    "performance-under-pressure":"Before the next test or performance, rehearse the first step together once: what will you do first? A rehearsed first step survives pressure."
+  };
 
   var STEPS=[];
   CLUSTERS.forEach(function(c,ci){ STEPS.push({t:"cluster",ci:ci}); c.domains.forEach(function(slug){ STEPS.push({t:"domain",ci:ci,slug:slug}); }); });
@@ -449,21 +486,65 @@
       });
     });
 
+    // "Where to start": the one or two lowest skills, each with its tonight-sized move.
+    var startEl=$("r-start");
+    if(LAST.positive){ startEl.hidden=true; }
+    else{
+      var startPicks=(LAST.growth.length?LAST.growth.slice():LAST.developing.slice())
+        .sort(function(a,b){return a.strengthPct-b.strengthPct;}).slice(0,2);
+      if(startPicks.length){
+        startEl.hidden=false;
+        $("r-start-lead").textContent="You do not need to work on everything at once. Start with the skill or two below; they tend to unlock the others for "+subj()+".";
+        var si=$("r-start-items"); si.innerHTML="";
+        startPicks.forEach(function(p){
+          var it=document.createElement("div"); it.className="st-item";
+          it.innerHTML="<b>"+p.name+"</b><span>"+cap(MOVES[p.slug]||"")+"</span>";
+          si.appendChild(it);
+        });
+      } else { startEl.hidden=true; }
+    }
+
+    // detail cards grouped by cluster, strengths-first within cluster, filterable by band
+    buildChips();
+    renderCards("all");
+
+    var bk=$("r-book"); bk.href=BOOKING_URL;
+    bk.addEventListener("click",function(){ track("cta_click",{location:"results"}); if(window.fbq) fbq("trackCustom","BookingClick"); });
+  }
+
+  // Band filter chips over the detail cards (All / Growth areas / Developing / Strengths).
+  var CHIP_DEFS=[["all","All"],["growth","Growth areas"],["developing","Developing"],["strength","Strengths"]];
+  function buildChips(){
+    var chips=$("r-chips"); chips.innerHTML=""; chips.hidden=false;
+    CHIP_DEFS.forEach(function(cd,k){
+      var count=(cd[0]==="all")?LAST.profile.length:LAST.profile.filter(function(p){return p.band===cd[0];}).length;
+      if(cd[0]!=="all" && !count) return;
+      var b=document.createElement("button"); b.type="button"; b.className="chip"+(k===0?" active":"");
+      b.textContent=cd[1]+(cd[0]==="all"?"":" ("+count+")");
+      b.addEventListener("click",function(){
+        [].forEach.call(chips.children,function(c){c.classList.remove("active");});
+        b.classList.add("active"); renderCards(cd[0]); track("band_filter",{band:cd[0]});
+      });
+      chips.appendChild(b);
+    });
+  }
+  function renderCards(filter){
     var body=$("r-body"); body.innerHTML="";
     CLUSTERS.forEach(function(c){
-      var doms=LAST.profile.filter(function(p){return p.cluster===c.key;}).sort(function(a,b){return b.strengthPct-a.strengthPct;});
+      var doms=LAST.profile.filter(function(p){return p.cluster===c.key && (filter==="all"||p.band===filter);})
+        .sort(function(a,b){return b.strengthPct-a.strengthPct;});
+      if(!doms.length) return;
       var h=document.createElement("div"); h.className="clh"; h.textContent=c.name; body.appendChild(h);
       doms.forEach(function(p){
         var dom=DOMAINS[p.slug], color=bandColor(p.band);
         var card=document.createElement("div"); card.className="dcard";
-        card.innerHTML='<div class="dh">'+p.name+' <span class="bd" style="color:'+color+'">'+BAND_LABEL[p.band]+'</span></div>'+
+        var chtml='<div class="dh">'+p.name+' <span class="bd" style="color:'+color+'">'+BAND_LABEL[p.band]+'</span></div>'+
           '<p>'+cap(dom.def)+' '+cap(dom.copy[p.band])+'</p>';
+        if(p.band!=="strength" && MOVES[p.slug]) chtml+='<p class="move"><b>One small move:</b> '+cap(MOVES[p.slug])+'</p>';
+        card.innerHTML=chtml;
         body.appendChild(card);
       });
     });
-
-    var bk=$("r-book"); bk.href=BOOKING_URL;
-    bk.addEventListener("click",function(){ track("cta_click",{location:"results"}); if(window.fbq) fbq("trackCustom","BookingClick"); });
   }
 
   function emailValid(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
