@@ -244,10 +244,11 @@
     o.referrer=document.referrer||"";return o;})();
   // Intake flow: the Student Intake Form links here per child with the child's name, the child's
   // GHL contact id, the parent email, and src=intake. Results route to the child's card (not the parent).
-  var INTAKE=(function(){var o={src:"",child:"",childId:"",email:""};try{var p=new URLSearchParams(location.search);
+  var INTAKE=(function(){var o={src:"",child:"",childId:"",parentId:"",email:""};try{var p=new URLSearchParams(location.search);
     o.src=(p.get("src")||"").trim().toLowerCase(); o.child=(p.get("child")||"").trim().slice(0,40);
-    o.childId=(p.get("childId")||"").trim(); o.email=(p.get("email")||"").trim();}catch(e){} return o;})();
+    o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();}catch(e){} return o;})();
   var INTAKE_MODE = INTAKE.src==="intake" || !!INTAKE.child;
+  var INTAKE_STATUS = "https://kaizen-student-intake.pages.dev/intake-status";
   var $=function(id){return document.getElementById(id);};
 
   var OPTS=[["Almost always",5,"Always"],["Often",4,"Often"],["Sometimes",3,"Sometimes"],["Rarely",2,"Rarely"],["Almost never",1,"Never"]];
@@ -588,6 +589,9 @@
         primaryGrowth:LAST.primary.name, profile:profileFlat, attribution:ATTRIBUTION
       })}).then(function(r){return r.json();}).then(function(r){
         if(AI_ENABLED){ var b=$("ai-body"); if(r&&r.insight){ b.className="ai-body"; b.textContent=r.insight; } else { $("ai").hidden=true; } }
+        // Intake gate: this child's snapshot is now tagged on their card, so nudge the intake
+        // status endpoint to re-check the roster (finalizes even if the intake tab isn't focused).
+        if(INTAKE_MODE && INTAKE.parentId){ setTimeout(function(){ try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){} }, 1200); }
       }).catch(function(){ if(AI_ENABLED) $("ai").hidden=true; });
     } else if(AI_ENABLED){ $("ai").hidden=true; }
   }
