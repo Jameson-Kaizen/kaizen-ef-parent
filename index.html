@@ -219,8 +219,8 @@
     <div class="sec-h">Each skill in detail</div>
     <div class="chips" id="r-chips" hidden></div>
     <div class="body" id="r-body"></div>
-    <div class="cta">
-      <p>Want help turning the growth areas into strengths? Book a free 30 minute consult. We will look at the full snapshot with you, hear what is going on at home and school, and tell you honestly whether we think we are a fit.</p>
+    <div class="cta" id="cta-block">
+      <p id="cta-copy">Want help turning the growth areas into strengths? Book a free 30 minute consult. We will look at the full snapshot with you, hear what is going on at home and school, and tell you honestly whether we think we are a fit.</p>
       <a class="btn" id="r-book" href="#" target="_blank" rel="noopener">Explore Coaching</a>
     </div>
     <button class="btn btn-ghost btn-block" id="r-retake" style="margin-top:16px">Take it again</button>
@@ -514,8 +514,18 @@
     buildChips();
     renderCards("all");
 
-    var bk=$("r-book"); bk.href=BOOKING_URL;
-    bk.addEventListener("click",function(){ track("cta_click",{location:"results"}); if(window.fbq) fbq("trackCustom","BookingClick"); });
+    var bk=$("r-book");
+    if(INTAKE_MODE){
+      // Intake families are already exploring coaching, so suppress the booking CTA and
+      // point them back to finish the intake instead.
+      var who=INTAKE.child ? (INTAKE.child+"'s") : "this";
+      var cc=$("cta-copy"); if(cc) cc.textContent="You have completed "+who+" snapshot. Thank you. Please return to your intake tab or window to finish any remaining steps before your family meeting.";
+      bk.style.display="none";
+      var cb=$("cta-block"); if(cb) cb.classList.add("cta-intake");
+    } else {
+      bk.href=BOOKING_URL;
+      bk.addEventListener("click",function(){ track("cta_click",{location:"results"}); if(window.fbq) fbq("trackCustom","BookingClick"); });
+    }
   }
 
   // Band filter chips over the detail cards (All / Growth areas / Developing / Strengths).
