@@ -249,6 +249,7 @@
     o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();}catch(e){} return o;})();
   var INTAKE_MODE = INTAKE.src==="intake" || !!INTAKE.child;
   var INTAKE_STATUS = "https://kaizen-student-intake.pages.dev/intake-status";
+  var INTAKE_REPORT = "https://kaizen-student-intake.pages.dev/ef-report";
   var $=function(id){return document.getElementById(id);};
 
   var OPTS=[["Almost always",5,"Always"],["Often",4,"Often"],["Sometimes",3,"Sometimes"],["Rarely",2,"Rarely"],["Almost never",1,"Never"]];
@@ -564,6 +565,57 @@
     });
   }
 
+  // ---- Intake archive: freeze a copy of this child's results page (plus a
+  // question-by-question appendix) and hand it to the intake project, which files
+  // it on the CHILD's GHL contact. Intake families only; public traffic never runs this.
+  function escHtml(v){ return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function buildReportHtml(){
+    var css=""; try{ var st=document.querySelector("style"); if(st) css=st.textContent||""; }catch(e){}
+    var res=document.getElementById("results");
+    var resHtml=res?res.outerHTML:"";
+    var rows="";
+    Object.keys(QTEXT).forEach(function(q){
+      var v=answers[q], opt=null;
+      for(var i=0;i<OPTS.length;i++){ if(String(OPTS[i][1])===String(v)) opt=OPTS[i]; }
+      rows+="<tr><td>"+escHtml(q)+"</td><td>"+escHtml(QTEXT[q])+"</td><td>"+escHtml(opt?opt[0]:"(not answered)")+"</td><td style=\"text-align:center\">"+escHtml(v==null?"":v)+"</td></tr>";
+    });
+    var when=new Date().toISOString().slice(0,10);
+    var who=(childName||"Student");
+    return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"+
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"+
+      "<title>EF Snapshot: "+escHtml(who)+" ("+escHtml(when)+")</title><style>"+css+
+      "\n.kzrep{max-width:820px;margin:0 auto;padding:24px 16px;}"+
+      "\n.kzrep h2{font-size:20px;margin:32px 0 10px;}"+
+      "\n.kzrep table{width:100%;border-collapse:collapse;font-size:14px;}"+
+      "\n.kzrep th,.kzrep td{border:1px solid #d8e0da;padding:8px 10px;text-align:left;vertical-align:top;}"+
+      "\n.kzrep th{background:#f0f5f2;}"+
+      "\n.kzrep .meta{color:#5b6b62;font-size:14px;margin:0 0 4px;}"+
+      "\n#results{display:block!important;}"+
+      "\n#r-book,.cta .btn{display:none!important;}"+
+      "</style></head><body><div class=\"kzrep\">"+
+      "<h1 style=\"margin:0 0 6px\">EF Snapshot: "+escHtml(who)+"</h1>"+
+      "<p class=\"meta\">Archived "+escHtml(when)+" for Kaizen Education Services. This is the results page exactly as the parent saw it.</p>"+
+      resHtml+
+      "<h2>Question by question</h2><table><thead><tr><th>#</th><th>Question</th><th>Answer</th><th>Score</th></tr></thead><tbody>"+
+      rows+"</tbody></table></div></body></html>";
+  }
+  function sendIntakeReport(){
+    if(!INTAKE_MODE || !INTAKE.childId || !LAST) return Promise.resolve();
+    var b64="";
+    try{ b64=btoa(unescape(encodeURIComponent(buildReportHtml()))); }catch(e){ b64=""; }
+    var byPct=LAST.profile.slice().sort(function(a,b){ return a.strengthPct-b.strengthPct; });
+    return fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      childId:INTAKE.childId, parentId:INTAKE.parentId,
+      childName:childName||INTAKE.child||"", childAge:childAge||"",
+      parentName:(($("g-name")&&$("g-name").value)||"").trim(),
+      overall:LAST.overall, band:LAST.band, primaryGrowth:LAST.primary?LAST.primary.name:"",
+      quizLabel:"Full Parent EF", questionCount:Object.keys(QTEXT).length,
+      whereToStart:byPct.slice(0,2).map(function(p){return p.name;}),
+      profile:LAST.profile.map(function(p){ return {name:p.name,band:p.band,strengthPct:p.strengthPct}; }),
+      reportHtml:b64
+    })}).catch(function(){});
+  }
+
   function emailValid(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
   function gateState(){ $("g-go").disabled=!(emailValid(($("g-email").value||"").trim()) && (String(($("g-phone")&&$("g-phone").value)||"").replace(/\D/g,"").length>=7) && $("g-consent").checked); }
   function submitLead(){
@@ -576,7 +628,7 @@
     if(window.fbq) fbq("track","Lead");
     renderResults();
     if(AI_ENABLED){ $("ai").hidden=false; var b=$("ai-body"); b.className="ai-body loading"; b.textContent="Writing a personalised read for you…"; }
-    var profileFlat={}; LAST.profile.forEach(function(p){ profileFlat[p.slug]={name:p.name,score:p.score,band:p.band}; });
+    var profileFlat={}; LAST.profile.forEach(function(p){ profileFlat[p.slug]={name:p.name,score:p.score,band:p.band,strengthPct:p.strengthPct}; });
     if(LEAD_ENDPOINT){
       fetch(LEAD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         firstName:firstName, email:email, phone:phone, consent:true, audience:"efparent",
@@ -589,9 +641,15 @@
         primaryGrowth:LAST.primary.name, profile:profileFlat, attribution:ATTRIBUTION
       })}).then(function(r){return r.json();}).then(function(r){
         if(AI_ENABLED){ var b=$("ai-body"); if(r&&r.insight){ b.className="ai-body"; b.textContent=r.insight; } else { $("ai").hidden=true; } }
-        // Intake gate: this child's snapshot is now tagged on their card, so nudge the intake
-        // status endpoint to re-check the roster (finalizes even if the intake tab isn't focused).
-        if(INTAKE_MODE && INTAKE.parentId){ setTimeout(function(){ try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){} }, 1200); }
+        // Intake: archive this child's report FIRST, then nudge the gate, so the record is
+        // already on the card by the time the intake-complete notification fires.
+        if(INTAKE_MODE){
+          var ping=function(){
+            if(!INTAKE.parentId) return;
+            try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){}
+          };
+          setTimeout(function(){ sendIntakeReport().then(ping, ping); }, 900);
+        }
       }).catch(function(){ if(AI_ENABLED) $("ai").hidden=true; });
     } else if(AI_ENABLED){ $("ai").hidden=true; }
   }
