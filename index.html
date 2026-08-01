@@ -591,7 +591,7 @@
       "\n.kzrep th{background:#f0f5f2;}"+
       "\n.kzrep .meta{color:#5b6b62;font-size:14px;margin:0 0 4px;}"+
       "\n#results{display:block!important;}"+
-      "\n#r-book,.cta .btn{display:none!important;}"+
+      "\n#r-book,.cta .btn,#ai{display:none!important;}"+
       "</style></head><body><div class=\"kzrep\">"+
       "<h1 style=\"margin:0 0 6px\">EF Snapshot: "+escHtml(who)+"</h1>"+
       "<p class=\"meta\">Archived "+escHtml(when)+" for Kaizen Education Services. This is the results page exactly as the parent saw it.</p>"+
@@ -599,22 +599,54 @@
       "<h2>Question by question</h2><table><thead><tr><th>#</th><th>Question</th><th>Answer</th><th>Score</th></tr></thead><tbody>"+
       rows+"</tbody></table></div></body></html>";
   }
-  function sendIntakeReport(){
-    if(!INTAKE_MODE || !INTAKE.childId || !LAST) return Promise.resolve();
-    var b64="";
-    try{ b64=btoa(unescape(encodeURIComponent(buildReportHtml()))); }catch(e){ b64=""; }
+  function intakePayload(withHtml){
     var byPct=LAST.profile.slice().sort(function(a,b){ return a.strengthPct-b.strengthPct; });
-    return fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    var body={
       childId:INTAKE.childId, parentId:INTAKE.parentId,
       childName:childName||INTAKE.child||"", childAge:childAge||"",
       parentName:(($("g-name")&&$("g-name").value)||"").trim(),
       overall:LAST.overall, band:LAST.band, primaryGrowth:LAST.primary?LAST.primary.name:"",
       quizLabel:"Full Parent EF", questionCount:Object.keys(QTEXT).length,
       whereToStart:byPct.slice(0,2).map(function(p){return p.name;}),
-      profile:LAST.profile.map(function(p){ return {name:p.name,band:p.band,strengthPct:p.strengthPct}; }),
-      reportHtml:b64
-    })}).catch(function(){});
+      profile:LAST.profile.map(function(p){ return {name:p.name,band:p.band,strengthPct:p.strengthPct}; })
+    };
+    if(withHtml){ try{ body.reportHtml=btoa(unescape(encodeURIComponent(buildReportHtml()))); }catch(e){ body.reportHtml=""; } }
+    return body;
   }
+  function pingGate(){
+    if(!INTAKE.parentId) return;
+    try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){}
+  }
+  // The archive is a record-of-truth write, so it must never wait on the lead-capture
+  // round trip (which blocks on an AI call server-side) and must never fail silently.
+  // It fires the moment the gate is submitted, retries while the tab is open, and a
+  // pagehide beacon (small payload, no frozen HTML) covers a fast tab close.
+  var archiveState={armed:false, done:false, tries:0};
+  function archiveIntakeReport(){
+    if(archiveState.done || !INTAKE_MODE || !INTAKE.childId || !LAST) return;
+    archiveState.armed=true;
+    fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(intakePayload(true))})
+      .then(function(r){
+        // Any response means the request landed. Retrying after that risks a
+        // duplicate note (notes accumulate), so only network failures retry.
+        archiveState.done=true;
+        r.json().catch(function(){return {};}).then(function(j){
+          if(!r.ok || (j && j.ok===false)) console.error("EF archive rejected:", r.status, j && j.error);
+          else if(j && (j.fields===false || j.note===false)) console.error("EF archive partial:", JSON.stringify(j));
+        });
+        pingGate();
+      })
+      .catch(function(e){
+        console.error("EF archive attempt "+(archiveState.tries+1)+" failed:", e);
+        if(++archiveState.tries<3){ setTimeout(archiveIntakeReport, 2500*archiveState.tries); }
+        else pingGate();
+      });
+  }
+  window.addEventListener("pagehide", function(){
+    if(!archiveState.armed || archiveState.done) return;
+    archiveState.done=true;
+    try{ navigator.sendBeacon(INTAKE_REPORT, new Blob([JSON.stringify(intakePayload(false))],{type:"text/plain"})); }catch(e){}
+  });
 
   function emailValid(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
   function gateState(){ $("g-go").disabled=!(emailValid(($("g-email").value||"").trim()) && (String(($("g-phone")&&$("g-phone").value)||"").replace(/\D/g,"").length>=7) && $("g-consent").checked); }
@@ -629,6 +661,8 @@
     renderResults();
     if(AI_ENABLED){ $("ai").hidden=false; var b=$("ai-body"); b.className="ai-body loading"; b.textContent="Writing a personalised read for you…"; }
     var profileFlat={}; LAST.profile.forEach(function(p){ profileFlat[p.slug]={name:p.name,score:p.score,band:p.band,strengthPct:p.strengthPct}; });
+    // Archive first and independently: it must not wait on the lead round trip.
+    if(INTAKE_MODE) archiveIntakeReport();
     if(LEAD_ENDPOINT){
       fetch(LEAD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         firstName:firstName, email:email, phone:phone, consent:true, audience:"efparent",
@@ -641,15 +675,6 @@
         primaryGrowth:LAST.primary.name, profile:profileFlat, attribution:ATTRIBUTION
       })}).then(function(r){return r.json();}).then(function(r){
         if(AI_ENABLED){ var b=$("ai-body"); if(r&&r.insight){ b.className="ai-body"; b.textContent=r.insight; } else { $("ai").hidden=true; } }
-        // Intake: archive this child's report FIRST, then nudge the gate, so the record is
-        // already on the card by the time the intake-complete notification fires.
-        if(INTAKE_MODE){
-          var ping=function(){
-            if(!INTAKE.parentId) return;
-            try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){}
-          };
-          setTimeout(function(){ sendIntakeReport().then(ping, ping); }, 900);
-        }
       }).catch(function(){ if(AI_ENABLED) $("ai").hidden=true; });
     } else if(AI_ENABLED){ $("ai").hidden=true; }
   }
