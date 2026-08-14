@@ -3,6 +3,40 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
+<script>(function(){
+  try{
+    var q=new URLSearchParams(location.search),requested=(q.get("src")||"").toLowerCase()==="intake",key="kz-intake-caps:"+location.pathname,c=null;
+    function claims(token,purpose){
+      try{
+        var parts=String(token||"").split(".");
+        if(parts.length!==3||parts[0]!=="kzcap1"||!/^[-_A-Za-z0-9]+$/.test(parts[1])||!/^[-_A-Za-z0-9]{43}$/.test(parts[2])) return null;
+        var raw=parts[1].replace(/-/g,"+").replace(/_/g,"/"); while(raw.length%4) raw+="=";
+        var value=JSON.parse(decodeURIComponent(Array.prototype.map.call(atob(raw),function(ch){return "%"+("00"+ch.charCodeAt(0).toString(16)).slice(-2);}).join("")));
+        var now=Math.floor(Date.now()/1000),keys="aud\nexp\niat\niss\njti\npar\npur\nsid\nsub\nv";
+        return value&&Object.keys(value).sort().join("\n")===keys&&value.v===1&&value.iss==="kaizen-student-intake"&&value.aud==="kaizen-intake-ef"&&value.pur===purpose&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.sid)&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.jti)&&/^[A-Za-z0-9_-]{1,128}$/.test(value.par)&&/^[A-Za-z0-9_-]{1,128}$/.test(value.sub)&&Number.isInteger(value.iat)&&Number.isInteger(value.exp)&&value.iat<=now+60&&value.exp>now&&value.exp>value.iat&&value.exp-value.iat<=604800?value:null;
+      }catch(error){ return null; }
+    }
+    function validPair(efCap,statusCap){
+      var report=claims(efCap,"ef-child-report"),status=claims(statusCap,"intake-status"),childId=(q.get("childId")||"").trim(),parentId=(q.get("parentId")||"").trim();
+      return !!(report&&status&&report.sid===status.sid&&report.par===status.par&&status.sub===status.par&&(!childId||report.sub===childId)&&(!parentId||report.par===parentId));
+    }
+    window.__KZ_INTAKE_REQUESTED=requested;
+    window.__KZ_CLEAR_INTAKE_CAPS=function(){try{sessionStorage.removeItem(key);}catch(error){}};
+    var h=new URLSearchParams((location.hash||"").replace(/^#/,"")),e=(h.get("efCap")||"").trim(),s=(h.get("statusCap")||"").trim();
+    if(e||s){
+      sessionStorage.removeItem(key);
+      if(requested&&validPair(e,s)){c={efCap:e,statusCap:s,savedAt:Date.now()};sessionStorage.setItem(key,JSON.stringify(c));}
+      history.replaceState(null,"",location.pathname+location.search);
+    }else if(requested){
+      try{c=JSON.parse(sessionStorage.getItem(key)||"null");}catch(error){}
+      if(!c||!validPair(c.efCap,c.statusCap)||!Number.isFinite(c.savedAt)||Date.now()-c.savedAt>604800000){sessionStorage.removeItem(key);c=null;}
+    }else{
+      sessionStorage.removeItem(key);
+    }
+    if(c){window.__KZ_INTAKE_CAPS={efCap:c.efCap,statusCap:c.statusCap};window.__KZ_INTAKE_CAPS_VALID=true;}
+  }catch(error){}
+})();</script>
 <title>Your Child's Executive Functioning Skills | Kaizen Education Services</title>
 <meta name="description" content="A full look at your child's executive functioning across fourteen skills, grouped into four areas. About 5 minutes, with a personalised read at the end."/>
 <link rel="icon" href="og-share.png"/>
@@ -13,23 +47,25 @@
 <meta name="twitter:card" content="summary_large_image"/>
 
 <!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-W56RJ3LXWW"></script>
+<script>if(!window.__KZ_INTAKE_REQUESTED){var kzga=document.createElement("script");kzga.async=true;kzga.src="https://www.googletagmanager.com/gtag/js?id=G-W56RJ3LXWW";document.head.appendChild(kzga);}</script>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-W56RJ3LXWW');
+  if(!window.__KZ_INTAKE_REQUESTED){
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-W56RJ3LXWW');
+  }
 </script>
 
 <!-- Meta Pixel -->
 <script>
-  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  if(!window.__KZ_INTAKE_REQUESTED){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
   n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
   t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
   'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '1089881403604799');
-  fbq('track', 'PageView');
+  fbq('track', 'PageView');}
 </script>
 <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=1089881403604799&ev=PageView&noscript=1" alt="" /></noscript>
@@ -149,6 +185,10 @@
 </div>
 
 <div class="wrap">
+  <section id="intake-invalid" class="card" hidden>
+    <h1>This intake task link is no longer valid</h1>
+    <p>Please return to your Kaizen intake confirmation page and open the task again, or contact Kaizen for help.</p>
+  </section>
   <section id="intro" class="card" hidden>
     <h1>Your Child's Executive Functioning Skills</h1>
     <p class="lead">Executive functioning is the set of mental skills a child uses to manage themselves and get things done: controlling impulses, holding information, managing emotion, starting and focusing, planning, staying organized, adapting, and more. Every child is stronger in some than others.</p>
@@ -244,10 +284,13 @@
     o.referrer=document.referrer||"";return o;})();
   // Intake flow: the Student Intake Form links here per child with the child's name, the child's
   // GHL contact id, the parent email, and src=intake. Results route to the child's card (not the parent).
-  var INTAKE=(function(){var o={src:"",child:"",childId:"",parentId:"",email:""};try{var p=new URLSearchParams(location.search);
+  var INTAKE=(function(){var o={src:"",child:"",childId:"",parentId:"",email:"",efCap:"",statusCap:"",valid:false};try{var p=new URLSearchParams(location.search);
     o.src=(p.get("src")||"").trim().toLowerCase(); o.child=(p.get("child")||"").trim().slice(0,40);
-    o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();}catch(e){} return o;})();
-  var INTAKE_MODE = INTAKE.src==="intake" || !!INTAKE.child;
+    o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();
+    var c=window.__KZ_INTAKE_CAPS||{}; o.efCap=(c.efCap||"").trim(); o.statusCap=(c.statusCap||"").trim(); o.valid=window.__KZ_INTAKE_CAPS_VALID===true; try{delete window.__KZ_INTAKE_CAPS;delete window.__KZ_INTAKE_REQUESTED;delete window.__KZ_INTAKE_CAPS_VALID;}catch(x){window.__KZ_INTAKE_CAPS=null;window.__KZ_INTAKE_REQUESTED=null;window.__KZ_INTAKE_CAPS_VALID=null;}}catch(e){} return o;})();
+  var INTAKE_REQUESTED = INTAKE.src==="intake";
+  var INTAKE_MODE = INTAKE_REQUESTED && INTAKE.valid && !!INTAKE.child && !!INTAKE.childId && !!INTAKE.parentId && /^kzcap1\./.test(INTAKE.efCap) && /^kzcap1\./.test(INTAKE.statusCap);
+  var INTAKE_INVALID = INTAKE_REQUESTED && !INTAKE_MODE;
   var INTAKE_STATUS = "https://kaizen-student-intake.pages.dev/intake-status";
   var INTAKE_REPORT = "https://kaizen-student-intake.pages.dev/ef-report";
   var $=function(id){return document.getElementById(id);};
@@ -599,12 +642,13 @@
       "<h2>Question by question</h2><table><thead><tr><th>#</th><th>Question</th><th>Answer</th><th>Score</th></tr></thead><tbody>"+
       rows+"</tbody></table></div></body></html>";
   }
-  function sendIntakeReport(){
-    if(!INTAKE_MODE || !INTAKE.childId || !LAST) return Promise.resolve();
+  var intakeReportState={armed:false,landed:false,attempts:0,serialized:""};
+  function intakeReportPayload(){
     var b64="";
     try{ b64=btoa(unescape(encodeURIComponent(buildReportHtml()))); }catch(e){ b64=""; }
     var byPct=LAST.profile.slice().sort(function(a,b){ return a.strengthPct-b.strengthPct; });
-    return fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    return {
+      capability:INTAKE.efCap,
       childId:INTAKE.childId, parentId:INTAKE.parentId,
       childName:childName||INTAKE.child||"", childAge:childAge||"",
       parentName:(($("g-name")&&$("g-name").value)||"").trim(),
@@ -613,8 +657,34 @@
       whereToStart:byPct.slice(0,2).map(function(p){return p.name;}),
       profile:LAST.profile.map(function(p){ return {name:p.name,band:p.band,strengthPct:p.strengthPct}; }),
       reportHtml:b64
-    })}).catch(function(){});
+    };
   }
+  function sendIntakeReport(){
+    if(!INTAKE_MODE || !INTAKE.childId || !LAST || intakeReportState.landed) return Promise.resolve(false);
+    intakeReportState.armed=true;
+    if(!intakeReportState.serialized) intakeReportState.serialized=JSON.stringify(intakeReportPayload());
+    intakeReportState.attempts++;
+    return fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:intakeReportState.serialized,keepalive:intakeReportState.serialized.length<=60000})
+      .then(function(r){ return r.json().catch(function(){return null;}).then(function(result){
+        intakeReportState.landed=true;
+        if(r.status===200 && result && result.ok===true){ try{window.__KZ_CLEAR_INTAKE_CAPS();}catch(e){} return true; }
+        console.error("EF intake report was not confirmed:",r.status);
+        return false;
+      }); })
+      .catch(function(e){
+        console.error("EF intake report attempt "+intakeReportState.attempts+" failed:",e);
+        if(intakeReportState.attempts<3){ return new Promise(function(resolve){ setTimeout(resolve,2500*intakeReportState.attempts); }).then(sendIntakeReport); }
+        return false;
+      });
+  }
+  function pingIntakeGate(){
+    if(!INTAKE_MODE) return;
+    try{ fetch(INTAKE_STATUS,{method:"POST",headers:{Accept:"application/json","Content-Type":"application/json"},body:JSON.stringify({capability:INTAKE.statusCap}),keepalive:true}).catch(function(){}); }catch(e){}
+  }
+  window.addEventListener("pagehide",function(){
+    if(!INTAKE_MODE || !intakeReportState.armed || intakeReportState.landed || !intakeReportState.serialized || intakeReportState.serialized.length>60000) return;
+    try{ navigator.sendBeacon(INTAKE_REPORT,new Blob([intakeReportState.serialized],{type:"text/plain"})); }catch(e){}
+  });
 
   function emailValid(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
   function gateState(){ $("g-go").disabled=!(emailValid(($("g-email").value||"").trim()) && (String(($("g-phone")&&$("g-phone").value)||"").replace(/\D/g,"").length>=7) && $("g-consent").checked); }
@@ -627,6 +697,7 @@
     track("lead_submit",{}); track("quiz_complete",{outcome:slug}); track("outcome",{outcome:slug});
     if(window.fbq) fbq("track","Lead");
     renderResults();
+    if(INTAKE_MODE){ setTimeout(function(){ sendIntakeReport().then(function(ok){ if(ok) pingIntakeGate(); }); },900); }
     if(AI_ENABLED){ $("ai").hidden=false; var b=$("ai-body"); b.className="ai-body loading"; b.textContent="Writing a personalised read for you…"; }
     var profileFlat={}; LAST.profile.forEach(function(p){ profileFlat[p.slug]={name:p.name,score:p.score,band:p.band,strengthPct:p.strengthPct}; });
     if(LEAD_ENDPOINT){
@@ -641,20 +712,16 @@
         primaryGrowth:LAST.primary.name, profile:profileFlat, attribution:ATTRIBUTION
       })}).then(function(r){return r.json();}).then(function(r){
         if(AI_ENABLED){ var b=$("ai-body"); if(r&&r.insight){ b.className="ai-body"; b.textContent=r.insight; } else { $("ai").hidden=true; } }
-        // Intake: archive this child's report FIRST, then nudge the gate, so the record is
-        // already on the card by the time the intake-complete notification fires.
-        if(INTAKE_MODE){
-          var ping=function(){
-            if(!INTAKE.parentId) return;
-            try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){}
-          };
-          setTimeout(function(){ sendIntakeReport().then(ping, ping); }, 900);
-        }
       }).catch(function(){ if(AI_ENABLED) $("ai").hidden=true; });
     } else if(AI_ENABLED){ $("ai").hidden=true; }
   }
 
   function init(){
+    if(INTAKE_INVALID){
+      var progress=document.querySelector(".prog"); if(progress) progress.hidden=true;
+      Array.prototype.forEach.call(document.querySelectorAll(".wrap > *"),function(el){ el.hidden=el.id!=="intake-invalid"; });
+      return;
+    }
     // Intake per-child links must start fresh for the named child, never resume a prior child's run.
     if(INTAKE_MODE){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
     var saved=null; try{ saved=JSON.parse(localStorage.getItem(SAVE_KEY)||"null"); }catch(e){}
