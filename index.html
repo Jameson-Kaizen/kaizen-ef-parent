@@ -3,6 +3,49 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
+<script id="intake-capability-bootstrap">(function(){
+  window.__KZ_INTAKE_REQUESTED=true;
+  window.__KZ_INTAKE_SUPPRESS_METRICS=true;
+  try{
+    var q=new URLSearchParams(location.search),requested=(q.get("src")||"").trim().toLowerCase()==="intake"||q.has("childId")||q.has("parentId")||/(?:^#|&)(?:efCap|statusCap)=/.test(location.hash||""),key="kz-intake-caps:"+location.pathname,c=null;
+    window.__KZ_INTAKE_REQUESTED=requested;
+    function claims(token,purpose){
+      try{
+        var parts=String(token||"").split(".");
+        if(parts.length!==3||parts[0]!=="kzcap1"||!/^[-_A-Za-z0-9]+$/.test(parts[1])||!/^[-_A-Za-z0-9]{43}$/.test(parts[2])) return null;
+        var raw=parts[1].replace(/-/g,"+").replace(/_/g,"/"); while(raw.length%4) raw+="=";
+        var value=JSON.parse(decodeURIComponent(Array.prototype.map.call(atob(raw),function(ch){return "%"+("00"+ch.charCodeAt(0).toString(16)).slice(-2);}).join("")));
+        var now=Math.floor(Date.now()/1000),keys="aud\nexp\niat\niss\njti\npar\npur\nsid\nsub\nv";
+        return value&&Object.keys(value).sort().join("\n")===keys&&value.v===1&&value.iss==="kaizen-student-intake"&&value.aud==="kaizen-intake-ef"&&value.pur===purpose&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.sid)&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.jti)&&/^[A-Za-z0-9_-]{1,128}$/.test(value.par)&&/^[A-Za-z0-9_-]{1,128}$/.test(value.sub)&&Number.isInteger(value.iat)&&Number.isInteger(value.exp)&&value.iat<=now+60&&value.exp>now&&value.exp>value.iat&&value.exp-value.iat<=604800?value:null;
+      }catch(error){ return null; }
+    }
+    function validPair(efCap,statusCap){
+      var report=claims(efCap,"ef-child-report"),status=claims(statusCap,"intake-status"),childId=(q.get("childId")||"").trim(),parentId=(q.get("parentId")||"").trim();
+      return !!((q.get("src")||"").trim().toLowerCase()==="intake"&&q.getAll("src").length===1&&q.getAll("childId").length===1&&q.getAll("parentId").length===1&&report&&status&&report.sid===status.sid&&report.par===status.par&&status.sub===status.par&&childId&&parentId&&report.sub===childId&&report.par===parentId);
+    }
+    window.__KZ_CLEAR_INTAKE_CAPS=function(){try{sessionStorage.removeItem(key);}catch(error){}};
+    var h=new URLSearchParams((location.hash||"").replace(/^#/,"")),e=(h.get("efCap")||"").trim(),s=(h.get("statusCap")||"").trim();
+    if(h.has("efCap")||h.has("statusCap")){
+      history.replaceState(null,"",location.pathname+location.search);
+      sessionStorage.removeItem(key);
+      if(requested&&h.getAll("efCap").length===1&&h.getAll("statusCap").length===1&&validPair(e,s)){c={efCap:e,statusCap:s,savedAt:Date.now()};sessionStorage.setItem(key,JSON.stringify(c));}
+    }else if(requested){
+      try{c=JSON.parse(sessionStorage.getItem(key)||"null");}catch(error){}
+      if(!c||!validPair(c.efCap,c.statusCap)||!Number.isFinite(c.savedAt)||Date.now()-c.savedAt>604800000){sessionStorage.removeItem(key);c=null;}
+    }else{
+      sessionStorage.removeItem(key);
+    }
+    if(c){
+      var attemptKey=key+":attempt:"+claims(c.efCap,"ef-child-report").jti;
+      window.__KZ_INTAKE_ATTEMPTED=sessionStorage.getItem(attemptKey)==="1";
+      window.__KZ_MARK_INTAKE_ATTEMPT=function(){sessionStorage.setItem(attemptKey,"1");};
+    }
+    if(!requested) document.querySelector('meta[name="referrer"]').content="strict-origin-when-cross-origin";
+    window.__KZ_INTAKE_SUPPRESS_METRICS=requested;
+    if(c){window.__KZ_INTAKE_CAPS={efCap:c.efCap,statusCap:c.statusCap};window.__KZ_INTAKE_CAPS_VALID=true;}
+  }catch(error){}
+})();</script>
 <title>Your Child's Executive Functioning Skills | Kaizen Education Services</title>
 <meta name="description" content="A full look at your child's executive functioning across fourteen skills, grouped into four areas. About 5 minutes, with a personalised read at the end."/>
 <link rel="icon" href="og-share.png"/>
@@ -13,23 +56,25 @@
 <meta name="twitter:card" content="summary_large_image"/>
 
 <!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-W56RJ3LXWW"></script>
+<script>if(!window.__KZ_INTAKE_SUPPRESS_METRICS){var ga=document.createElement("script");ga.async=true;ga.src="https://www.googletagmanager.com/gtag/js?id=G-W56RJ3LXWW";document.head.appendChild(ga);}</script>
 <script>
+  if(!window.__KZ_INTAKE_SUPPRESS_METRICS){
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'G-W56RJ3LXWW');
+  }
 </script>
 
 <!-- Meta Pixel -->
 <script>
-  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  if(!window.__KZ_INTAKE_SUPPRESS_METRICS){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
   n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
   t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
   'https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', '1089881403604799');
-  fbq('track', 'PageView');
+  fbq('track', 'PageView');}
 </script>
 <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=1089881403604799&ev=PageView&noscript=1" alt="" /></noscript>
@@ -149,6 +194,10 @@
 </div>
 
 <div class="wrap">
+  <section id="intake-invalid" class="card" hidden>
+    <h1>This intake task needs a fresh link</h1>
+    <p id="intake-invalid-message">Return to your intake confirmation page and open the task again. If you have already submitted this snapshot, contact Kaizen before starting again.</p>
+  </section>
   <section id="intro" class="card" hidden>
     <h1>Your Child's Executive Functioning Skills</h1>
     <p class="lead">Executive functioning is the set of mental skills a child uses to manage themselves and get things done: controlling impulses, holding information, managing emotion, starting and focusing, planning, staying organized, adapting, and more. Every child is stronger in some than others.</p>
@@ -197,6 +246,7 @@
   </section>
 
   <section id="results" class="card" hidden>
+    <p id="intake-save-status" role="status" hidden></p>
     <div class="r-tag">Executive Functioning Snapshot</div>
     <h1 id="r-name">Your Child's Executive Functioning Snapshot</h1>
     <p class="sub" id="r-sub"></p>
@@ -244,10 +294,18 @@
     o.referrer=document.referrer||"";return o;})();
   // Intake flow: the Student Intake Form links here per child with the child's name, the child's
   // GHL contact id, the parent email, and src=intake. Results route to the child's card (not the parent).
-  var INTAKE=(function(){var o={src:"",child:"",childId:"",parentId:"",email:""};try{var p=new URLSearchParams(location.search);
+  var intakeRequested=window.__KZ_INTAKE_REQUESTED===true;
+  var intakePreviouslyAttempted=window.__KZ_INTAKE_ATTEMPTED===true;
+  var markIntakeAttempt=window.__KZ_MARK_INTAKE_ATTEMPT;
+  var clearIntakeCapabilities=window.__KZ_CLEAR_INTAKE_CAPS;
+  try{delete window.__KZ_INTAKE_ATTEMPTED;delete window.__KZ_MARK_INTAKE_ATTEMPT;delete window.__KZ_CLEAR_INTAKE_CAPS;}catch(e){}
+  var INTAKE=(function(){var o={src:"",child:"",childId:"",parentId:"",email:"",efCap:"",statusCap:"",valid:false};try{var p=new URLSearchParams(location.search);
     o.src=(p.get("src")||"").trim().toLowerCase(); o.child=(p.get("child")||"").trim().slice(0,40);
-    o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();}catch(e){} return o;})();
-  var INTAKE_MODE = INTAKE.src==="intake" || !!INTAKE.child;
+    o.childId=(p.get("childId")||"").trim(); o.parentId=(p.get("parentId")||"").trim(); o.email=(p.get("email")||"").trim();
+    var c=window.__KZ_INTAKE_CAPS||{}; o.efCap=(c.efCap||"").trim(); o.statusCap=(c.statusCap||"").trim(); o.valid=window.__KZ_INTAKE_CAPS_VALID===true; try{delete window.__KZ_INTAKE_CAPS;delete window.__KZ_INTAKE_REQUESTED;delete window.__KZ_INTAKE_CAPS_VALID;}catch(x){window.__KZ_INTAKE_CAPS=null;window.__KZ_INTAKE_REQUESTED=null;window.__KZ_INTAKE_CAPS_VALID=null;}}catch(e){} return o;})();
+  var INTAKE_REQUESTED = intakeRequested;
+  var INTAKE_MODE = INTAKE_REQUESTED && INTAKE.valid && !!INTAKE.child && !!INTAKE.childId && !!INTAKE.parentId && /^kzcap1\./.test(INTAKE.efCap) && /^kzcap1\./.test(INTAKE.statusCap);
+  var INTAKE_INVALID = INTAKE_REQUESTED && (!INTAKE_MODE || intakePreviouslyAttempted);
   var INTAKE_STATUS = "https://kaizen-student-intake.pages.dev/intake-status";
   var INTAKE_REPORT = "https://kaizen-student-intake.pages.dev/ef-report";
   var $=function(id){return document.getElementById(id);};
@@ -521,7 +579,8 @@
       // Intake families are already exploring coaching, so suppress the booking CTA and
       // point them back to finish the intake instead.
       var who=INTAKE.child ? (INTAKE.child+"'s") : "this";
-      var cc=$("cta-copy"); if(cc) cc.textContent="You have completed "+who+" snapshot. Thank you. Please return to your intake tab or window to finish any remaining steps before your family meeting.";
+      var cc=$("cta-copy"); if(cc) cc.textContent="Your snapshot is part of your family intake. Check the save status above before closing this page.";
+      $("r-retake").hidden=true;
       bk.style.display="none";
       var cb=$("cta-block"); if(cb) cb.classList.add("cta-intake");
     } else {
@@ -572,7 +631,9 @@
   function buildReportHtml(){
     var css=""; try{ var st=document.querySelector("style"); if(st) css=st.textContent||""; }catch(e){}
     var res=document.getElementById("results");
-    var resHtml=res?res.outerHTML:"";
+    var frozen=res?res.cloneNode(true):null;
+    if(frozen){Array.prototype.forEach.call(frozen.querySelectorAll("#intake-save-status,#cta-block,#r-retake"),function(el){el.remove();});}
+    var resHtml=frozen?frozen.outerHTML:"";
     var rows="";
     Object.keys(QTEXT).forEach(function(q){
       var v=answers[q], opt=null;
@@ -602,7 +663,7 @@
   function intakePayload(withHtml){
     var byPct=LAST.profile.slice().sort(function(a,b){ return a.strengthPct-b.strengthPct; });
     var body={
-      childId:INTAKE.childId, parentId:INTAKE.parentId,
+      capability:INTAKE.efCap, childId:INTAKE.childId, parentId:INTAKE.parentId,
       childName:childName||INTAKE.child||"", childAge:childAge||"",
       parentName:(($("g-name")&&$("g-name").value)||"").trim(),
       overall:LAST.overall, band:LAST.band, primaryGrowth:LAST.primary?LAST.primary.name:"",
@@ -613,58 +674,73 @@
     if(withHtml){ try{ body.reportHtml=btoa(unescape(encodeURIComponent(buildReportHtml()))); }catch(e){ body.reportHtml=""; } }
     return body;
   }
-  function pingGate(){
-    if(!INTAKE.parentId) return;
-    try{ fetch(INTAKE_STATUS+"?parentId="+encodeURIComponent(INTAKE.parentId),{headers:{Accept:"application/json"}}); }catch(e){}
+  var intakeSaveState={attempted:false,reportSaved:false,childSaved:false,phase:"idle",reportBody:"",workerBody:""};
+  function intakeSaveMessage(text){
+    var el=$("intake-save-status"); el.hidden=false; el.textContent=text;
   }
-  // The archive is a record-of-truth write, so it must never wait on the lead-capture
-  // round trip (which blocks on an AI call server-side) and must never fail silently.
-  // It fires the moment the gate is submitted, retries while the tab is open, and a
-  // pagehide beacon (small payload, no frozen HTML) covers a fast tab close.
-  var archiveState={armed:false, done:false, tries:0};
-  function archiveIntakeReport(){
-    if(archiveState.done || !INTAKE_MODE || !INTAKE.childId || !LAST) return;
-    archiveState.armed=true;
-    fetch(INTAKE_REPORT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(intakePayload(true))})
-      .then(function(r){
-        // Any response means the request landed. Retrying after that risks a
-        // duplicate note (notes accumulate), so only network failures retry.
-        archiveState.done=true;
-        r.json().catch(function(){return {};}).then(function(j){
-          if(!r.ok || (j && j.ok===false)) console.error("EF archive rejected:", r.status, j && j.error);
-          else if(j && (j.fields===false || j.note===false)) console.error("EF archive partial:", JSON.stringify(j));
-        });
-        pingGate();
-      })
-      .catch(function(e){
-        console.error("EF archive attempt "+(archiveState.tries+1)+" failed:", e);
-        if(++archiveState.tries<3){ setTimeout(archiveIntakeReport, 2500*archiveState.tries); }
-        else pingGate();
-      });
+  async function intakeJsonPost(url,body){
+    var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},90000);
+    try{
+      var response=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:body,signal:controller.signal});
+      var value=await response.json();
+      if(response.status!==200 || !value || value.ok!==true) throw new Error("Intake request not confirmed");
+      return value;
+    }finally{clearTimeout(timer);}
   }
-  window.addEventListener("pagehide", function(){
-    if(!archiveState.armed || archiveState.done) return;
-    archiveState.done=true;
-    try{ navigator.sendBeacon(INTAKE_REPORT, new Blob([JSON.stringify(intakePayload(false))],{type:"text/plain"})); }catch(e){}
-  });
+  async function saveIntakeSnapshot(workerPayload){
+    if(!INTAKE_MODE || INTAKE_INVALID || intakeSaveState.attempted) return;
+    intakeSaveState.attempted=true;
+    intakeSaveState.phase="report";
+    intakeSaveMessage("Saving this snapshot. Please keep this page open.");
+    try{
+      markIntakeAttempt();
+      intakeSaveState.reportBody=JSON.stringify(intakePayload(true));
+      intakeSaveState.workerBody=JSON.stringify(workerPayload);
+      await intakeJsonPost(INTAKE_REPORT,intakeSaveState.reportBody);
+      intakeSaveState.reportSaved=true;
+      intakeSaveState.phase="child";
+      intakeSaveMessage("Your report is saved. Confirming this intake step...");
+      if(!LEAD_ENDPOINT) throw new Error("Child completion unavailable");
+      var childResult=await intakeJsonPost(LEAD_ENDPOINT,intakeSaveState.workerBody);
+      if(childResult.ghl!==true || childResult.childRouted!==true) throw new Error("Child completion not confirmed");
+      intakeSaveState.childSaved=true;
+      clearSave();
+      if(AI_ENABLED && childResult.insight){$("ai").hidden=false;$("ai-body").className="ai-body";$("ai-body").textContent=childResult.insight;}
+      else{$("ai").hidden=true;}
+      intakeSaveState.phase="status";
+      var status=await intakeJsonPost(INTAKE_STATUS,JSON.stringify({capability:INTAKE.statusCap}));
+      if(typeof status.complete!=="boolean") throw new Error("Family status unavailable");
+      intakeSaveState.phase="complete";
+      clearIntakeCapabilities();
+      intakeSaveMessage(status.complete
+        ? "This snapshot is saved and all required intake snapshots are complete. Thank you."
+        : "This snapshot is saved. Return to your intake page to finish the remaining snapshots.");
+    }catch(error){
+      $("ai").hidden=true;
+      intakeSaveState.phase="unconfirmed";
+      intakeSaveMessage(intakeSaveState.childSaved
+        ? "This snapshot is saved. We could not confirm the full family's completion status. Please keep this page open and contact Kaizen."
+        : intakeSaveState.reportSaved
+          ? "Your report is saved, but completion of this intake step is unconfirmed. Please keep this page open and contact Kaizen before submitting again."
+          : "We could not confirm that this snapshot was saved. Please keep this page open and contact Kaizen before submitting again.");
+    }
+  }
 
   function emailValid(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
   function gateState(){ $("g-go").disabled=!(emailValid(($("g-email").value||"").trim()) && (String(($("g-phone")&&$("g-phone").value)||"").replace(/\D/g,"").length>=7) && $("g-consent").checked); }
   function submitLead(){
+    if(INTAKE_INVALID || (INTAKE_MODE && intakeSaveState.attempted)) return;
     var email=($("g-email").value||"").trim(), firstName=($("g-name").value||"").trim(), phone=(($("g-phone")&&$("g-phone").value)||"").trim();
     if(!emailValid(email)||phone.replace(/\D/g,"").length<7||!$("g-consent").checked){ var e=$("g-err"); e.hidden=false; e.textContent="Please enter a valid email, a phone number, and check the box."; return; }
     $("g-err").hidden=true; $("g-go").disabled=true; $("g-go").textContent="Loading your results…";
     var slug=LAST.positive?"all-strengths":LAST.primary.slug;
-    clearSave();
+    if(!INTAKE_MODE) clearSave();
     track("lead_submit",{}); track("quiz_complete",{outcome:slug}); track("outcome",{outcome:slug});
     if(window.fbq) fbq("track","Lead");
     renderResults();
     if(AI_ENABLED){ $("ai").hidden=false; var b=$("ai-body"); b.className="ai-body loading"; b.textContent="Writing a personalised read for you…"; }
     var profileFlat={}; LAST.profile.forEach(function(p){ profileFlat[p.slug]={name:p.name,score:p.score,band:p.band,strengthPct:p.strengthPct}; });
-    // Archive first and independently: it must not wait on the lead round trip.
-    if(INTAKE_MODE) archiveIntakeReport();
-    if(LEAD_ENDPOINT){
-      fetch(LEAD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    var workerPayload={
         firstName:firstName, email:email, phone:phone, consent:true, audience:"efparent",
         src:INTAKE.src, childId:INTAKE.childId,
         archetype:slug, archetypeName:"Child Executive Functioning Snapshot", positive:LAST.positive,
@@ -673,13 +749,23 @@
         developing:LAST.developing.map(function(p){return p.name;}),
         growth:LAST.growth.map(function(p){return p.name;}),
         primaryGrowth:LAST.primary.name, profile:profileFlat, attribution:ATTRIBUTION
-      })}).then(function(r){return r.json();}).then(function(r){
+      };
+    if(INTAKE_MODE){ saveIntakeSnapshot(workerPayload); return; }
+    if(LEAD_ENDPOINT){
+      fetch(LEAD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(workerPayload)}).then(function(r){return r.json();}).then(function(r){
         if(AI_ENABLED){ var b=$("ai-body"); if(r&&r.insight){ b.className="ai-body"; b.textContent=r.insight; } else { $("ai").hidden=true; } }
       }).catch(function(){ if(AI_ENABLED) $("ai").hidden=true; });
     } else if(AI_ENABLED){ $("ai").hidden=true; }
   }
 
   function init(){
+    if(INTAKE_INVALID){
+      $("prog").hidden=true;
+      SCREENS.forEach(function(id){$(id).hidden=true;});
+      $("intake-invalid").hidden=false;
+      if(intakePreviouslyAttempted) $("intake-invalid-message").textContent="A submission was already attempted in this tab. Please contact Kaizen to check its status before starting again.";
+      return;
+    }
     // Intake per-child links must start fresh for the named child, never resume a prior child's run.
     if(INTAKE_MODE){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
     var saved=null; try{ saved=JSON.parse(localStorage.getItem(SAVE_KEY)||"null"); }catch(e){}
