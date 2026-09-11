@@ -101,3 +101,10 @@ test('referrer privacy applies to intake while ordinary visits restore the defau
   assert.match(boot,/if\(!requested\) document\.querySelector/);
   assert.ok(boot.indexOf('sessionStorage.removeItem(key);')<boot.indexOf('window.__KZ_INTAKE_SUPPRESS_METRICS=requested;'));
 });
+test('attempted intake initialization stops before any quiz event handler',()=>{
+  const elements=new Map(),source=page.slice(page.indexOf('  function init(){'),page.indexOf('  if(document.readyState==='));
+  const c={INTAKE_INVALID:true,INTAKE_MODE:true,intakePreviouslyAttempted:true,SCREENS:['intro','quiz','gate','results'],$:id=>{if(!elements.has(id))elements.set(id,{hidden:false,textContent:''});return elements.get(id);}};
+  vm.runInNewContext(source,c);c.init();
+  for(const id of c.SCREENS)assert.equal(elements.get(id).hidden,true);
+  assert.equal(elements.get('intake-invalid').hidden,false);assert.match(elements.get('intake-invalid-message').textContent,/already attempted/);
+});
